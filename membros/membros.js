@@ -8,7 +8,11 @@ import {
 document.getElementById("topo").innerHTML = topo("membros");
 const app = document.getElementById("app");
 const params = new URLSearchParams(location.search);
-const st = { sessao: null, sit: null, aba: params.get("aba") || "geral", chaveResgate: crypto.randomUUID(), recuperando: false };
+const st = {
+  sessao: null, sit: null, aba: params.get("aba") || "geral", chaveResgate: crypto.randomUUID(), recuperando: false,
+  planoPendente: [params.get("plano"), localStorage.getItem("hag_plano")].find((p) => PLANOS[p]) ?? null,
+};
+localStorage.removeItem("hag_plano");
 const ABAS = [["geral", "Visão geral"], ["carteira", "Carteira"], ["indicacao", "Indicação"], ["caixas", "Caixas"],
   ["eventos", "Eventos"], ["dados", "Meus dados"]];
 
@@ -82,6 +86,8 @@ async function iniciar() {
   try {
     await rpc("clube_garantir_perfil");
     st.sit = await rpc("clube_minha_situacao");
+    if (!semAssinatura()) st.planoPendente = null;
+    if (st.planoPendente && !st.sit.perfil_completo) st.aba = "dados";
     render();
     if (params.get("checkout") === "retorno") acompanharConfirmacao();
     if (params.get("checkout") === "cancelado") {
@@ -99,6 +105,8 @@ async function recarregar() {
 }
 
 const planoAtual = () => st.sit.beneficio_vigente?.plano || st.sit.assinatura?.plano || null;
+const ASSINATURA_VIVA = ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"];
+const semAssinatura = () => !st.sit.beneficio_vigente && !ASSINATURA_VIVA.includes(st.sit.assinatura?.status);
 
 function render() {
   const s = st.sit;
@@ -159,9 +167,8 @@ function abaGeral() {
   const el = document.getElementById("conteudo");
   const incompleto = !s.perfil_completo
     ? `<div class="aviso" style="margin-bottom:16px">Complete seus dados (telefone, nascimento e endereço) em <a class="link" href="#" data-ir="dados">Meus dados</a> para poder assinar.</div>` : "";
-  const vivo = a && ["active", "trialing", "past_due", "unpaid", "incomplete", "paused"].includes(a.status);
-  if (!vivo && !v) {
-    const escolhido = params.get("plano");
+  if (semAssinatura()) {
+    const escolhido = st.planoPendente;
     el.innerHTML = `${incompleto}${a ? `<div class="aviso" style="margin-bottom:16px">Sua assinatura anterior está ${esc(ROTULOS.assinatura[a.status]?.[0] ?? a.status).toLowerCase()}. Você pode assinar novamente.</div>` : ""}
       ${s.checkout?.status === "aberta" ? `<div class="aviso" style="margin-bottom:16px">Você iniciou uma contratação. Clique em assinar para continuar de onde parou.</div>` : ""}
       <div class="planos" style="margin-top:0">${cartaoPlano("ha_assinatura", escolhido === "ha_assinatura")}${cartaoPlano("ha_club", escolhido === "ha_club")}</div>
@@ -198,8 +205,14 @@ function abaGeral() {
 }
 
 async function assinar(plano, botao) {
-  if (!st.sit.perfil_completo) { toast("Complete seus dados antes de assinar"); st.aba = "dados"; render(); return; }
-  botao.disabled = true;
+  if (!st.sit.perfil_completo) {
+    st.planoPendente = plano;
+    toast("Complete seus dados antes de assinar");
+    st.aba = "dados";
+    render();
+    return;
+  }
+  if (botao) botao.disabled = true;
   try {
     const r = await funcao("clube-checkout", { plano });
     if (r.url) { location.href = r.url; return; }
@@ -208,7 +221,7 @@ async function assinar(plano, botao) {
   } catch (e) {
     toast(mensagem(e));
   } finally {
-    botao.disabled = false;
+    if (botao) botao.disabled = false;
   }
 }
 
@@ -386,7 +399,9 @@ function abaDados() {
   const el = document.getElementById("conteudo");
   const p = st.sit.perfil ?? {}, e = st.sit.endereco ?? {};
   const fone = p.telefone ? p.telefone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3") : "";
-  el.innerHTML = `<div class="grid g-21">
+  const pendente = st.planoPendente && semAssinatura() ? PLANOS[st.planoPendente] : null;
+  el.innerHTML = `${pendente ? `<div class="aviso" style="margin-bottom:16px"><b>Falta pouco!</b> Complete seus dados e endereço para seguir para o pagamento do plano ${esc(pendente.nome)}.</div>` : ""}
+  <div class="grid g-21">
     <div class="card"><div class="card-head"><h3>Dados pessoais e endereço</h3></div>
       <form class="form" id="fDados" novalidate>
         <label>Nome completo<input name="nome" value="${esc(p.nome)}" maxlength="120" required /></label>
@@ -404,7 +419,7 @@ function abaDados() {
         <label>Destinatário da caixa (opcional, para presentear)<input name="destinatario" maxlength="120" value="${esc(e.destinatario ?? "")}" placeholder="Em branco: seu nome" />
           <span class="hint">A caixa pode ir para outra pessoa neste endereço; isso não cria outra conta nem outra assinatura.</span></label>
         <div class="aviso erro" id="erroDados" hidden></div>
-        <button class="btn btn-primary">Salvar dados</button>
+        <button class="btn btn-primary">${pendente ? "Salvar e ir para o pagamento" : "Salvar dados"}</button>
       </form></div>
     <div><div class="card"><div class="card-head"><h3>E-mail de acesso</h3></div>
       <form class="form" id="fEmail"><label>Novo e-mail<input name="email" type="email" required /></label>
@@ -428,8 +443,18 @@ function abaDados() {
           bairro: f.bairro.value, cidade: f.cidade.value, referencia: f.referencia.value, destinatario: f.destinatario.value,
         },
       });
+      st.sit = await rpc("clube_minha_situacao");
+      if (st.planoPendente && st.sit.perfil_completo && semAssinatura()) {
+        const plano = st.planoPendente;
+        st.planoPendente = null;
+        st.aba = "geral";
+        render();
+        toast("Dados salvos. Abrindo o pagamento…");
+        await assinar(plano);
+        return;
+      }
       toast("Dados salvos");
-      await recarregar();
+      render();
     } catch (err) { erro.textContent = mensagem(err); erro.hidden = false; }
   });
   document.getElementById("fEmail").addEventListener("submit", async (ev) => {

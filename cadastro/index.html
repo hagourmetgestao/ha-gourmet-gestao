@@ -46,6 +46,7 @@
     document.getElementById("topo").innerHTML = topo("cadastro");
     const params = new URLSearchParams(location.search);
     const plano = PLANOS[params.get("plano")] ? params.get("plano") : null;
+    if (plano) localStorage.setItem("hag_plano", plano);
     if (plano) document.getElementById("planoEscolhido").textContent = `Plano escolhido: ${PLANOS[plano].nome}. O pagamento vem depois do cadastro.`;
     const destino = urlSite(`membros/${plano ? `?plano=${plano}` : ""}`);
 
