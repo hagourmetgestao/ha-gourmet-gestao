@@ -1,4 +1,4 @@
-/* Clube HA Gourmet: LP, cadastro, área de membros e administração. Complementa ../styles.css (mesma paleta). */
+/* Clube HA La Vie: LP, cadastro, área de membros e administração. Complementa ../styles.css (mesma paleta). */
 body.clube { font-size: 15px; }
 .cl-top {
   background: var(--choc); color: #f5f1e8; position: sticky; top: 0; z-index: 30;
@@ -9,8 +9,7 @@ body.clube a.btn { text-decoration: none; }
 .cl-top .brand-name { white-space: nowrap; }
 .cl-marca { gap: 12px; align-items: center; border-bottom: 0; }
 .plano .preco { font-family: var(--font-display); font-weight: 400; font-size: 42px; color: var(--maison); }
-.cl-marca .marca img { height: 36px; }
-.cl-marca .marca-nome { font-size: 22px; }
+.cl-marca img { height: 40px; width: auto; display: block; }
 .cl-marca .brand-sub { color: var(--champanhe); font-size: 10.5px; text-transform: uppercase; letter-spacing: .16em; border-left: 1px solid rgba(245, 241, 232, .25); padding-left: 12px; }
 .cl-top .brand { padding: 0; }
 .cl-top nav { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
