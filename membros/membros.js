@@ -395,6 +395,39 @@ async function abaEventos() {
 
 /* ---------- Meus dados ---------- */
 
+// Com 8 números no CEP, a ViaCEP preenche rua, bairro, cidade e UF; os campos seguem editáveis para correções.
+function ligarBuscaCep(f) {
+  const info = document.getElementById("cepInfo");
+  const mascarar = () => {
+    const cep = f.cep.value.replace(/\D/g, "").slice(0, 8);
+    f.cep.value = cep.length > 5 ? `${cep.slice(0, 5)}-${cep.slice(5)}` : cep;
+    return cep;
+  };
+  let ultimo = mascarar();
+  f.cep.addEventListener("input", async () => {
+    const cep = mascarar();
+    if (cep.length < 8 || cep === ultimo) return;
+    ultimo = cep;
+    info.textContent = "Buscando endereço…";
+    try {
+      const resp = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const end = resp.ok ? await resp.json() : { erro: true };
+      if (cep !== ultimo) return;
+      if (end.erro) { info.textContent = "CEP não encontrado. Confira o número ou preencha o endereço abaixo."; return; }
+      f.logradouro.value = end.logradouro || "";
+      f.bairro.value = end.bairro || "";
+      f.cidade.value = end.localidade || "";
+      f.uf.value = end.uf || "";
+      info.textContent = end.logradouro ? "Endereço preenchido. Informe o número e o complemento." : "CEP geral da cidade: preencha a rua e o bairro.";
+      (end.logradouro ? f.numero : f.logradouro).focus();
+    } catch {
+      if (cep !== ultimo) return;
+      ultimo = "";
+      info.textContent = "Não foi possível buscar o CEP agora. Preencha o endereço abaixo.";
+    }
+  });
+}
+
 function abaDados() {
   const el = document.getElementById("conteudo");
   const p = st.sit.perfil ?? {}, e = st.sit.endereco ?? {};
@@ -408,14 +441,15 @@ function abaDados() {
         <div class="linha"><label>Telefone com DDD<input name="telefone" type="tel" value="${esc(fone)}" required /></label>
           <label>Data de nascimento<input name="nascimento" type="date" value="${esc(p.nascimento ?? "")}" ${p.nascimento ? "disabled" : ""} />
           ${p.nascimento ? `<span class="hint">${dataCivil(p.nascimento)} · para corrigir, fale com a loja</span>` : ""}</label></div>
-        <div class="linha3"><label>CEP<input name="cep" inputmode="numeric" maxlength="9" value="${esc(e.cep ?? "")}" required /></label>
-          <label>UF<input name="uf" maxlength="2" value="${esc(e.uf ?? "")}" style="text-transform:uppercase" required /></label>
-          <label>Número<input name="numero" maxlength="20" value="${esc(e.numero ?? "")}" required /></label></div>
+        <div class="linha3"><label>CEP<input name="cep" inputmode="numeric" autocomplete="postal-code" maxlength="9" placeholder="00000-000" value="${esc(e.cep ?? "")}" required />
+            <span class="hint" id="cepInfo">O endereço é preenchido pelo CEP.</span></label>
+          <label>Número<input name="numero" maxlength="20" value="${esc(e.numero ?? "")}" required /></label>
+          <label>Complemento<input name="complemento" maxlength="80" value="${esc(e.complemento ?? "")}" placeholder="Apto, bloco…" /></label></div>
         <label>Rua / logradouro<input name="logradouro" maxlength="160" value="${esc(e.logradouro ?? "")}" required /></label>
-        <div class="linha"><label>Complemento<input name="complemento" maxlength="80" value="${esc(e.complemento ?? "")}" /></label>
-          <label>Bairro<input name="bairro" maxlength="80" value="${esc(e.bairro ?? "")}" required /></label></div>
-        <div class="linha"><label>Cidade<input name="cidade" maxlength="80" value="${esc(e.cidade ?? "")}" required /></label>
-          <label>Ponto de referência<input name="referencia" maxlength="160" value="${esc(e.referencia ?? "")}" /></label></div>
+        <div class="linha3"><label>Bairro<input name="bairro" maxlength="80" value="${esc(e.bairro ?? "")}" required /></label>
+          <label>Cidade<input name="cidade" maxlength="80" value="${esc(e.cidade ?? "")}" required /></label>
+          <label>UF<input name="uf" maxlength="2" value="${esc(e.uf ?? "")}" style="text-transform:uppercase" required /></label></div>
+        <label>Ponto de referência<input name="referencia" maxlength="160" value="${esc(e.referencia ?? "")}" /></label>
         <label>Destinatário da caixa (opcional, para presentear)<input name="destinatario" maxlength="120" value="${esc(e.destinatario ?? "")}" placeholder="Em branco: seu nome" />
           <span class="hint">A caixa pode ir para outra pessoa neste endereço; isso não cria outra conta nem outra assinatura.</span></label>
         <div class="aviso erro" id="erroDados" hidden></div>
@@ -429,6 +463,7 @@ function abaDados() {
         <button class="btn">Alterar senha</button></form></div></div>
   </div>`;
 
+  ligarBuscaCep(document.getElementById("fDados"));
   document.getElementById("fDados").addEventListener("submit", async (ev) => {
     ev.preventDefault();
     const f = ev.target, erro = document.getElementById("erroDados");
