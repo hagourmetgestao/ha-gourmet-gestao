@@ -150,7 +150,12 @@ body.lp { font-size: 16px; background: var(--bg); color: var(--text); }
 .lp-tags { list-style: none; padding: 0; margin: 0 0 26px; display: flex; flex-wrap: wrap; gap: 8px; }
 .lp-tags li { padding: 6px 13px; border-radius: 999px; border: 1px solid rgba(197, 160, 89, .5); color: var(--champanhe); font-size: 13px; }
 .lp-planos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-.lp-plano { background: var(--bg); color: var(--text); border-radius: 24px; padding: 24px; }
+.lp-plano { display: flex; flex-direction: column; background: var(--bg); color: var(--text); border-radius: 24px; padding: 24px; text-decoration: none; transition: transform .2s ease, box-shadow .2s ease; }
+.lp-plano:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(0, 0, 0, .25); }
+.lp-plano:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+.lp-plano-cta { margin-top: auto; padding-top: 16px; font-size: 13.5px; font-weight: 700; color: var(--maison); }
+.lp-plano-cta::after { content: " →"; transition: margin-left .2s ease; }
+.lp-plano:hover .lp-plano-cta::after { margin-left: 4px; }
 .lp-plano-club { background: var(--champanhe); }
 .lp-plano h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--maison); }
 .lp-preco { font-family: var(--font-display); font-size: 40px; color: var(--maison); margin: 8px 0 12px; }
